@@ -118,6 +118,7 @@ scheduled = HUEY.scheduled
 
 # Hooks.
 on_startup = HUEY.on_startup
+on_shutdown = HUEY.on_shutdown
 pre_execute = HUEY.pre_execute
 post_execute = HUEY.post_execute
 signal = HUEY.signal
@@ -146,5 +147,7 @@ def db_task(*args, **kwargs):
 
 def db_periodic_task(*args, **kwargs):
     def decorator(fn):
-        return periodic_task(*args, **kwargs)(close_db(fn))
+        ret = periodic_task(*args, **kwargs)(close_db(fn))
+        ret.call_local = fn
+        return ret
     return decorator

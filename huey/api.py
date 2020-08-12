@@ -23,6 +23,7 @@ from huey.exceptions import TaskLockedException
 from huey.registry import Registry
 from huey.serializer import Serializer
 from huey.storage import BlackHoleStorage
+from huey.storage import FileStorage
 from huey.storage import MemoryStorage
 from huey.storage import PriorityRedisExpireStorage
 from huey.storage import PriorityRedisStorage
@@ -33,6 +34,7 @@ from huey.utils import Error
 from huey.utils import normalize_time
 from huey.utils import reraise_as
 from huey.utils import string_type
+from huey.utils import time_clock
 from huey.utils import to_timestamp
 
 
@@ -114,6 +116,7 @@ class Huey(object):
         self._pre_execute = OrderedDict()
         self._post_execute = OrderedDict()
         self._startup = OrderedDict()
+        self._shutdown = OrderedDict()
         self._registry = Registry()
         self._signal = S.Signal()
 
@@ -239,6 +242,18 @@ class Huey(object):
             name = name.__name__
         return self._startup.pop(name, None) is not None
 
+    def on_shutdown(self, name=None):
+        def decorator(fn):
+            self._shutdown[name or fn.__name__] = fn
+            return fn
+        return decorator
+
+    def unregister_on_shutdown(self, name=None):
+        if not isinstance(name, string_type):
+            # Assume we were given the function itself.
+            name = name.__name__
+        return self._shutdown.pop(name, None) is not None
+
     def signal(self, *signals):
         def decorator(fn):
             self._signal.connect(fn, *signals)
@@ -336,7 +351,7 @@ class Huey(object):
                 self._emit(S.SIGNAL_CANCELED, task)
                 return
 
-        start = time.time()
+        start = time_clock()
         exception = None
         task_value = None
 
@@ -344,7 +359,7 @@ class Huey(object):
             try:
                 task_value = task.execute()
             finally:
-                duration = time.time() - start
+                duration = time_clock() - start
         except TaskLockedException as exc:
             logger.warning('Task %s not run, unable to acquire lock.', task.id)
             exception = exc
@@ -639,14 +654,24 @@ class Task(object):
         if self.on_complete:
             self.on_complete.then(task, *args, **kwargs)
         else:
-            self.on_complete = task.s(*args, **kwargs)
+            if isinstance(task, Task):
+                if args: task.extend_data(args)
+                if kwargs: task.extend_data(kwargs)
+            else:
+                task = task.s(*args, **kwargs)
+            self.on_complete = task
         return self
 
     def error(self, task, *args, **kwargs):
         if self.on_error:
             self.on_error.error(task, *args, **kwargs)
         else:
-            self.on_error = task.s(*args, **kwargs)
+            if isinstance(task, Task):
+                if args: task.extend_data(args)
+                if kwargs: task.extend_data(kwargs)
+            else:
+                task = task.s(*args, **kwargs)
+            self.on_error = task
         return self
 
     def execute(self):
@@ -849,10 +874,10 @@ class Result(object):
             if res is not EmptyData:
                 return res
         else:
-            start = time.time()
+            start = time_clock()
             delay = .1
             while self._result is EmptyData:
-                if timeout and time.time() - start >= timeout:
+                if timeout and time_clock() - start >= timeout:
                     if revoke_on_timeout:
                         self.revoke()
                     raise HueyException('timed out waiting for result')
@@ -1030,3 +1055,6 @@ class PriorityRedisHuey(Huey):
 
 class PriorityRedisExpireHuey(Huey):
     storage_class = PriorityRedisExpireStorage
+
+class FileHuey(Huey):
+    storage_class = FileStorage

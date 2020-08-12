@@ -3,7 +3,35 @@ Changelog
 
 ## master
 
-[View commits](https://github.com/coleifer/huey/compare/2.1.3...HEAD)
+[View commits](https://github.com/coleifer/huey/compare/2.3.0...HEAD)
+
+## 2.3.0
+
+* Use monotonic clock for timing operations within the consumer.
+* Ensure internal state is cleaned up on file-lock when released.
+* Support passing around TaskException as a pickled value.
+* Set the multiprocessing mode to "fork" on MacOS and Python 3.8 or newer.
+* Added option to enforce FIFO behavior when using Sqlite as storage.
+* Added the `on_shutdown` handler to djhuey namespace.
+* Ensure exception is set on AsyncResult in mini-huey.
+
+[View commits](https://github.com/coleifer/huey/compare/2.2.0...2.3.0)
+
+## 2.2.0
+
+* Fix task `repr` (refs #460).
+* Adds task-id into metadata for task exceptions (refs #461).
+* Ensure database connection is not closed when using the `call_local` method
+  of Django helper extension `db_periodic_task()`.
+* Allow pickle protocol to be explicitly configured in serializer parameters.
+* Adds `FileHuey` and full `FileStorage` implementation.
+* Add `shutdown()` hook, which will be run in the context of the worker
+  threads/processes during shutdown. This hook can be used to clean-up shared
+  or global resources, for example.
+* Allow pipelines to be chained together. Additionally, support chaining task
+  instances.
+
+[View commits](https://github.com/coleifer/huey/compare/2.1.3...2.2.0)
 
 ## 2.1.3
 

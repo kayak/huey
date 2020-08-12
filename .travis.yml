@@ -14,6 +14,6 @@ addons:
 services:
   - redis
 install: "pip install gevent redis peewee ukt"
-script: "python runtests.py"
+script: "HUEY_TRAVIS=1 python runtests.py -v 2"
 notifications:
   email: true
